@@ -11,16 +11,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only dependency files first for layer caching
+# Copy dependency manifest — no source code yet (preserves layer cache)
 COPY pyproject.toml ./
+# Stub packages so pip can resolve deps without the full source tree
+RUN mkdir -p api worker && touch api/__init__.py worker/__init__.py
 
 # Install into an isolated venv so the runner stage stays clean
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir hatchling && \
-    pip install --no-cache-dir -e .
+    pip install --no-cache-dir .
 
 # ──────────────────────────────────────────────────────────────
 # Stage 2 — runner: minimal image with pre-built venv

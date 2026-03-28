@@ -32,6 +32,9 @@ dependencies = [
     "aiosqlite>=0.20.0",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["api", "worker"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
