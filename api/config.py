@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "changeme"
     JWT_ALGORITHM: str = "HS256"
 
+    # CORS — comma-separated list of allowed origins.
+    # Leave empty to allow all origins (fine for a VPS without a domain).
+    # Example: "https://yourdomain.com,http://2.56.246.97:3001"
+    CORS_ORIGINS: str = ""
+
     # Runtime
     ENVIRONMENT: str = "development"
 

@@ -72,6 +72,7 @@ services:
       UPLOADS_DIR: /uploads
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-500}
       ENVIRONMENT: ${ENVIRONMENT:-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
     volumes:
       - uploads-data:/uploads
     networks:
