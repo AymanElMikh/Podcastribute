@@ -53,32 +53,48 @@ async def call_gateway(
     strategy: str = "balanced",
     max_tokens: int = 2000,
 ) -> str:
-    """Send a chat completion request to the LLM gateway and return the response text.
+    """Send a chat completion request to OpenAI and return the response text.
 
-    All LLM calls in the application must go through this function — never
-    call external LLM providers directly.
+    Uses gpt-4o-mini for "balanced"/"fast" strategies and gpt-4o for "quality",
+    giving a cost/capability trade-off across content generators.
 
     Args:
         system: System prompt text.
         user: User prompt text.
-        strategy: Gateway routing strategy ("balanced", "quality", "fast").
+        strategy: Routing hint — "quality" uses gpt-4o, everything else uses gpt-4o-mini.
         max_tokens: Maximum tokens to generate.
 
     Returns:
-        The assistant message content string from the gateway response.
+        The assistant message content string from OpenAI.
 
     Raises:
-        httpx.HTTPStatusError: If the gateway returns a non-2xx status.
+        httpx.HTTPStatusError: If OpenAI returns a non-2xx status.
+        ValueError: If OPENAI_API_KEY is not configured.
     """
+    if not settings.OPENAI_API_KEY:
+        raise ValueError(
+            "OPENAI_API_KEY is not set. Add it to your .env file."
+        )
+
+    model = (
+        settings.OPENAI_MODEL_QUALITY
+        if strategy == "quality"
+        else settings.OPENAI_MODEL_DEFAULT
+    )
+
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
-            f"{settings.GATEWAY_URL}/v1/chat/completions",
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+                "Content-Type": "application/json",
+            },
             json={
+                "model": model,
                 "messages": [
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
                 ],
-                "strategy": strategy,
                 "max_tokens": max_tokens,
             },
         )

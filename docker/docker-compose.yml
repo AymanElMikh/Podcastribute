@@ -58,7 +58,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-podcastai}:${POSTGRES_PASSWORD:-podcastai}@postgres:5432/${POSTGRES_DB:-podcastai}
       REDIS_URL: redis://redis:6379
       CELERY_BROKER_URL: redis://redis:6379/1
-      GATEWAY_URL: ${GATEWAY_URL:-http://gateway.yourdomain.com}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL_DEFAULT: ${OPENAI_MODEL_DEFAULT:-gpt-4o-mini}
+      OPENAI_MODEL_QUALITY: ${OPENAI_MODEL_QUALITY:-gpt-4o}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       STRIPE_PRICE_STARTER: ${STRIPE_PRICE_STARTER:-}
@@ -92,7 +94,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-podcastai}:${POSTGRES_PASSWORD:-podcastai}@postgres:5432/${POSTGRES_DB:-podcastai}
       REDIS_URL: redis://redis:6379
       CELERY_BROKER_URL: redis://redis:6379/1
-      GATEWAY_URL: ${GATEWAY_URL:-http://gateway.yourdomain.com}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL_DEFAULT: ${OPENAI_MODEL_DEFAULT:-gpt-4o-mini}
+      OPENAI_MODEL_QUALITY: ${OPENAI_MODEL_QUALITY:-gpt-4o}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-changeme-in-production}
       WHISPER_MODEL: ${WHISPER_MODEL:-small}

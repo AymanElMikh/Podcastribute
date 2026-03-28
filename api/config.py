@@ -14,8 +14,10 @@ class Settings(BaseSettings):
     Production deployments must override secrets via environment or .env file.
     """
 
-    # LLM Gateway
-    GATEWAY_URL: str = "http://gateway.yourdomain.com"
+    # OpenAI
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL_DEFAULT: str = "gpt-4o-mini"   # fast + cheap for most tasks
+    OPENAI_MODEL_QUALITY: str = "gpt-4o"         # used when strategy="quality"
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://user:pass@localhost/podcastai"
