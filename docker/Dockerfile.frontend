@@ -18,9 +18,12 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY frontend/ .
 
-# Standalone output bundles the server + required node_modules
-# into .next/standalone so the runner image needs no node_modules
+# NEXT_PUBLIC_* vars must be present at build time — they are
+# inlined into the JS bundle and not available at runtime.
+ARG NEXT_PUBLIC_API_URL=http://localhost:8002
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN npm run build
 
 # ──────────────────────────────────────────────────────────────

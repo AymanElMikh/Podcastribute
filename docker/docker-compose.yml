@@ -118,9 +118,11 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.frontend
+      args:
+        # Baked into the JS bundle at build time — must be the public URL
+        # that browsers can reach (not the internal docker network name)
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8002}
     restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:8002}
     networks:
       - podcast-net
     depends_on:
