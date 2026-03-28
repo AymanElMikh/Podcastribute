@@ -22,17 +22,15 @@ from api.v1.auth import _hash_password, _verify_password
 
 
 async def test_register_creates_user(client: AsyncClient) -> None:
-    """Registration returns 201 and the new user's public data."""
+    """Registration returns 201 and a JWT access token."""
     resp = await client.post(
         "/v1/auth/register",
         json={"email": "alice@example.com", "password": "hunter2"},
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["email"] == "alice@example.com"
-    assert data["plan"] == "free"
-    assert data["episodes_this_month"] == 0
-    assert "id" in data
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
 
 
 async def test_register_hashes_password(client: AsyncClient, db_session: AsyncSession) -> None:

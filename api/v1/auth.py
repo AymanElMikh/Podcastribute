@@ -62,21 +62,22 @@ def _user_response(user: User) -> UserResponse:
     )
 
 
-@router.post("/register", response_model=UserResponse, status_code=201)
+@router.post("/register", response_model=TokenResponse, status_code=201)
 async def register(
     body: UserCreate,
     db: AsyncSession = Depends(get_db),
-) -> UserResponse:
-    """Register a new user account.
+) -> TokenResponse:
+    """Register a new user account and return a JWT access token.
 
-    Hashes the password with bcrypt and stores the user record.
+    Hashes the password with bcrypt, stores the user record, and immediately
+    issues a token so the client is authenticated without a separate login step.
 
     Args:
         body: UserCreate with email and plaintext password.
         db: Async database session.
 
     Returns:
-        UserResponse with the new user's public data.
+        TokenResponse with a signed JWT access token.
 
     Raises:
         HTTPException: 409 if email is already registered.
@@ -93,8 +94,9 @@ async def register(
     await db.flush()
     await db.refresh(user)
 
+    token = _create_access_token(user)
     log.info("user_registered", user_id=str(user.id), email=user.email)
-    return _user_response(user)
+    return TokenResponse(access_token=token, token_type="bearer")
 
 
 @router.post("/login", response_model=TokenResponse)

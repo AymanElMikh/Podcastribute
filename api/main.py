@@ -48,8 +48,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("startup", environment=settings.ENVIRONMENT)
 
     from api.db.models import Base
-    from api.db.session import engine
-    async with engine.begin() as conn:
+    from api.db.session import _get_engine
+    async with _get_engine().begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     log.info("db_tables_ready")
 
