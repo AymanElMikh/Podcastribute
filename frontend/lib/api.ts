@@ -97,7 +97,7 @@ export interface Episode {
   status: EpisodeStatus;
   duration_seconds: number | null;
   created_at: string;
-  error_message: string | null;
+  error_message?: string | null;
 }
 
 export interface EpisodeList {
@@ -106,32 +106,43 @@ export interface EpisodeList {
 }
 
 export const episodes = {
-  list: (page = 1, pageSize = 20) =>
-    apiFetch<EpisodeList>(`/v1/episodes?page=${page}&page_size=${pageSize}`),
+  // Backend returns a plain array — wrap it to match EpisodeList shape
+  list: async (page = 1, pageSize = 20): Promise<EpisodeList> => {
+    const items = await apiFetch<Episode[]>(
+      `/v1/episodes?page=${page}&page_size=${pageSize}`
+    );
+    return { items: items ?? [], total: items?.length ?? 0 };
+  },
 
   get: (id: string) => apiFetch<Episode>(`/v1/episodes/${id}`),
 
-  upload: (file: File, title: string) => {
+  // Backend returns EpisodeResponse with field "id", not "episode_id"
+  upload: async (file: File, title: string): Promise<{ episode_id: string; status: string }> => {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("title", title);
-    return apiFetch<{ episode_id: string; status: string }>("/v1/episodes/upload", {
+    const ep = await apiFetch<Episode>("/v1/episodes/upload", {
       method: "POST",
       body: fd,
     });
+    return { episode_id: ep.id, status: ep.status };
   },
 
-  fromYouTube: (url: string) =>
-    apiFetch<{ episode_id: string; status: string }>("/v1/episodes/youtube", {
+  fromYouTube: async (url: string): Promise<{ episode_id: string; status: string }> => {
+    const ep = await apiFetch<Episode>("/v1/episodes/youtube", {
       method: "POST",
       body: JSON.stringify({ url }),
-    }),
+    });
+    return { episode_id: ep.id, status: ep.status };
+  },
 
-  fromRSS: (feedUrl: string, episodeIndex = 0) =>
-    apiFetch<{ episode_id: string; status: string }>("/v1/episodes/rss", {
+  fromRSS: async (feedUrl: string, episodeIndex = 0): Promise<{ episode_id: string; status: string }> => {
+    const ep = await apiFetch<Episode>("/v1/episodes/rss", {
       method: "POST",
       body: JSON.stringify({ feed_url: feedUrl, episode_index: episodeIndex }),
-    }),
+    });
+    return { episode_id: ep.id, status: ep.status };
+  },
 };
 
 // ---------------------------------------------------------------------------
