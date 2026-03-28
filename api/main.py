@@ -41,11 +41,18 @@ def configure_logging() -> None:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application startup and shutdown lifecycle.
 
-    Runs DB connection validation on startup.
+    Creates all database tables on startup (idempotent).
     Closes connections cleanly on shutdown.
     """
     configure_logging()
     log.info("startup", environment=settings.ENVIRONMENT)
+
+    from api.db.models import Base
+    from api.db.session import engine
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    log.info("db_tables_ready")
+
     yield
     log.info("shutdown")
 
