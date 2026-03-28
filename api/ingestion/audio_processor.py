@@ -57,6 +57,8 @@ class AudioProcessor:
             audio_path,
             "--model",
             settings.WHISPER_MODEL,
+            "--model_dir",
+            "/tmp/whisper_models",
             "--output_format",
             "json",
             "--output_dir",

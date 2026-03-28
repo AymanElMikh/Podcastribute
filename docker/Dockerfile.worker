@@ -39,7 +39,13 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY api/ ./api/
 COPY worker/ ./worker/
 
-RUN mkdir -p /uploads && chown app:app /uploads
+RUN mkdir -p /uploads && chown app:app /uploads && \
+    mkdir -p /tmp/whisper_models && chown app:app /tmp/whisper_models
+
+# Pre-download Whisper model at build time so the worker doesn't need
+# internet access or a writable home directory at runtime.
+ARG WHISPER_MODEL=small
+RUN python -c "import whisper; whisper.load_model('$WHISPER_MODEL', download_root='/tmp/whisper_models')"
 
 USER app
 
