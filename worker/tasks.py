@@ -6,7 +6,7 @@ LangGraph pipeline synchronously within the Celery worker context.
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import structlog
@@ -71,7 +71,7 @@ async def _run_pipeline(episode_id: str) -> dict:
 
         # Update status to transcribing
         episode.status = "transcribing"
-        episode.processing_started_at = datetime.now(timezone.utc)
+        episode.processing_started_at = datetime.utcnow()
         await session.commit()
 
         try:
@@ -116,7 +116,7 @@ async def _run_pipeline(episode_id: str) -> dict:
 
             # 7. Mark complete
             episode.status = "ready"
-            episode.processing_completed_at = datetime.now(timezone.utc)
+            episode.processing_completed_at = datetime.utcnow()
             await session.commit()
 
             log.info("pipeline_complete", episode_id=episode_id)
