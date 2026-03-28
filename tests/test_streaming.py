@@ -39,6 +39,21 @@ def authed_client(client: AsyncClient, fake_user: User):
     app.dependency_overrides.pop(get_current_user, None)
 
 
+@pytest.fixture
+def fake_token(fake_user: User) -> str:
+    """A valid JWT for fake_user, for use with the stream endpoint ?token= param."""
+    from api.v1.auth import _create_access_token
+    return _create_access_token(fake_user)
+
+
+@pytest.fixture
+async def persisted_fake_user(db_session, fake_user: User) -> User:
+    """fake_user saved to the test DB so JWT lookups can find them."""
+    db_session.add(fake_user)
+    await db_session.commit()
+    return fake_user
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -214,41 +229,47 @@ async def test_event_stream_skips_non_message_type() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_stream_endpoint_returns_404_for_unknown_episode(authed_client) -> None:
+async def test_stream_endpoint_returns_404_for_unknown_episode(
+    client: AsyncClient, persisted_fake_user, fake_token: str
+) -> None:
     """GET /v1/stream/{id} returns 404 when episode does not exist."""
     from api.v1.stream import get_redis
 
     fake_id = str(uuid.uuid4())
     app.dependency_overrides[get_redis] = _fake_redis_dep
     try:
-        response = await authed_client.get(f"/v1/stream/{fake_id}")
+        response = await client.get(f"/v1/stream/{fake_id}?token={fake_token}")
     finally:
         app.dependency_overrides.pop(get_redis, None)
 
     assert response.status_code == 404
 
 
-async def test_stream_endpoint_returns_422_for_invalid_uuid(authed_client) -> None:
+async def test_stream_endpoint_returns_422_for_invalid_uuid(
+    client: AsyncClient, persisted_fake_user, fake_token: str
+) -> None:
     """GET /v1/stream/not-a-uuid returns 422."""
     from api.v1.stream import get_redis
 
     app.dependency_overrides[get_redis] = _fake_redis_dep
     try:
-        response = await authed_client.get("/v1/stream/not-a-uuid")
+        response = await client.get(f"/v1/stream/not-a-uuid?token={fake_token}")
     finally:
         app.dependency_overrides.pop(get_redis, None)
 
     assert response.status_code == 422
 
 
-async def test_stream_endpoint_returns_event_stream(authed_client, db_session, fake_user) -> None:
+async def test_stream_endpoint_returns_event_stream(
+    client: AsyncClient, db_session, persisted_fake_user, fake_token: str
+) -> None:
     """GET /v1/stream/{id} returns text/event-stream for a valid episode."""
     from api.db.models import Episode
     from api.v1.stream import get_redis
 
     episode = Episode(
         id=uuid.uuid4(),
-        user_id=fake_user.id,
+        user_id=persisted_fake_user.id,
         title="Test Episode",
         source_type="upload",
         status="generating",
@@ -266,7 +287,7 @@ async def test_stream_endpoint_returns_event_stream(authed_client, db_session, f
 
     app.dependency_overrides[get_redis] = _redis_with_events
     try:
-        response = await authed_client.get(f"/v1/stream/{episode.id}")
+        response = await client.get(f"/v1/stream/{episode.id}?token={fake_token}")
     finally:
         app.dependency_overrides.pop(get_redis, None)
 
@@ -275,7 +296,9 @@ async def test_stream_endpoint_returns_event_stream(authed_client, db_session, f
     assert "content_ready" in response.text
 
 
-async def test_stream_endpoint_rejects_other_users_episode(authed_client, db_session) -> None:
+async def test_stream_endpoint_rejects_other_users_episode(
+    client: AsyncClient, db_session, persisted_fake_user, fake_token: str
+) -> None:
     """GET /v1/stream/{id} returns 404 for an episode owned by another user."""
     from api.db.models import Episode
     from api.v1.stream import get_redis
@@ -293,7 +316,7 @@ async def test_stream_endpoint_rejects_other_users_episode(authed_client, db_ses
 
     app.dependency_overrides[get_redis] = _fake_redis_dep
     try:
-        response = await authed_client.get(f"/v1/stream/{episode.id}")
+        response = await client.get(f"/v1/stream/{episode.id}?token={fake_token}")
     finally:
         app.dependency_overrides.pop(get_redis, None)
 
