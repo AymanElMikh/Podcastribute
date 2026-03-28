@@ -1,6 +1,5 @@
 """Tests for the ingestion pipeline — audio processor, YouTube downloader, and upload API."""
 
-import json
 import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -53,29 +52,26 @@ def authed_client(client: AsyncClient, fake_user: User):
 
 async def test_transcribe_returns_transcript_result(tmp_path: Path) -> None:
     """transcribe() returns a TranscriptResult with text, segments, and language."""
+    from types import SimpleNamespace
+
     audio_file = tmp_path / "episode.mp3"
     audio_file.write_bytes(b"fake audio data")
 
-    # Whisper writes a .json file alongside the input
-    whisper_output = tmp_path / "episode.json"
-    whisper_output.write_text(
-        json.dumps(
-            {
-                "text": " Hello world this is a test.",
-                "segments": [
-                    {"id": 0, "start": 0.0, "end": 3.5, "text": " Hello world"},
-                    {"id": 1, "start": 3.5, "end": 7.0, "text": " this is a test."},
-                ],
-                "language": "en",
-            }
-        )
-    )
+    # Mock faster-whisper segments and info
+    mock_segments = [
+        SimpleNamespace(start=0.0, end=3.5, text=" Hello world"),
+        SimpleNamespace(start=3.5, end=7.0, text=" this is a test."),
+    ]
+    mock_info = SimpleNamespace(duration=7.0, language="en")
 
-    mock_proc = AsyncMock()
-    mock_proc.returncode = 0
-    mock_proc.communicate = AsyncMock(return_value=(b"", b""))
+    def fake_transcribe(*_):
+        return iter(mock_segments), mock_info
 
-    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+    mock_model = SimpleNamespace(transcribe=fake_transcribe)
+
+    with patch("api.ingestion.audio_processor._load_whisper_model", return_value=mock_model):
+        import api.ingestion.audio_processor as ap_module
+        ap_module._whisper_model = None  # reset cache
         result = await AudioProcessor().transcribe(str(audio_file))
 
     assert result.text == "Hello world this is a test."
@@ -85,15 +81,19 @@ async def test_transcribe_returns_transcript_result(tmp_path: Path) -> None:
 
 
 async def test_transcribe_raises_on_nonzero_exit(tmp_path: Path) -> None:
-    """transcribe() raises TranscriptionError when Whisper exits non-zero."""
+    """transcribe() raises TranscriptionError when faster-whisper raises an exception."""
     audio_file = tmp_path / "bad.mp3"
     audio_file.write_bytes(b"not audio")
 
-    mock_proc = AsyncMock()
-    mock_proc.returncode = 1
-    mock_proc.communicate = AsyncMock(return_value=(b"", b"error: no model found"))
+    def broken_transcribe(*_):
+        raise RuntimeError("model error")
 
-    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+    from types import SimpleNamespace
+    mock_model = SimpleNamespace(transcribe=broken_transcribe)
+
+    with patch("api.ingestion.audio_processor._load_whisper_model", return_value=mock_model):
+        import api.ingestion.audio_processor as ap_module
+        ap_module._whisper_model = None
         with pytest.raises(TranscriptionError):
             await AudioProcessor().transcribe(str(audio_file))
 

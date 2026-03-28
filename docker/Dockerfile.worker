@@ -40,12 +40,14 @@ COPY api/ ./api/
 COPY worker/ ./worker/
 
 RUN mkdir -p /uploads && chown app:app /uploads && \
-    mkdir -p /tmp/whisper_models && chown app:app /tmp/whisper_models
+    mkdir -p /tmp/whisper_models && chown -R app:app /tmp/whisper_models
 
-# Pre-download Whisper model at build time so the worker doesn't need
-# internet access or a writable home directory at runtime.
+# Pre-download faster-whisper model at build time (avoids runtime internet access).
+# Uses int8 quantization for 4x faster CPU inference vs openai-whisper.
 ARG WHISPER_MODEL=small
-RUN python -c "import whisper; whisper.load_model('$WHISPER_MODEL', download_root='/tmp/whisper_models')"
+RUN python -c "\
+from faster_whisper import WhisperModel; \
+WhisperModel('$WHISPER_MODEL', device='cpu', compute_type='int8', download_root='/tmp/whisper_models')"
 
 USER app
 
