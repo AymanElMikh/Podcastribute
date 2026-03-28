@@ -40,6 +40,12 @@ export default function Home() {
             See pricing
           </Link>
         </div>
+        <p className="mt-6 text-sm text-gray-400">
+          Already have an account?{" "}
+          <Link href="/login" className="text-blue-600 hover:underline">
+            Sign in
+          </Link>
+        </p>
         <p className="mt-4 text-sm text-gray-400">
           1 free episode, no credit card required
         </p>
