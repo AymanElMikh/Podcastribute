@@ -697,7 +697,7 @@ Phase complete when:
   - frontend EventSource receives events live
 
 ╔══════════════════════════════════════════════════════════════════╗
-║  PHASE 9 — Review dashboard + content editing (Next.js)        ║
+║  PHASE 9 — Review dashboard + content editing (Next.js)        ²²║
 ╚══════════════════════════════════════════════════════════════════╝
 
 frontend/app/content/[id]/page.tsx:
@@ -745,7 +745,7 @@ Pages:
 Phase complete when: full review flow works — upload, watch progress, review, copy
 
 ╔══════════════════════════════════════════════════════════════════╗
-║  PHASE 10 — Platform publisher integrations                    ║
+║  PHASE 10 — Platform publisher integrations                      ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 Implement direct publish to platforms.

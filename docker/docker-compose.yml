@@ -1,0 +1,125 @@
+version: "3.9"
+
+# ──────────────────────────────────────────────────────────────
+# PodcastAI — full stack compose configuration
+# Services: api · worker · frontend · postgres · redis
+# ──────────────────────────────────────────────────────────────
+
+networks:
+  podcast-net:
+    driver: bridge
+
+volumes:
+  pg-data:
+  redis-data:
+  uploads-data:
+
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-podcastai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-podcastai}
+      POSTGRES_DB: ${POSTGRES_DB:-podcastai}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    networks:
+      - podcast-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-podcastai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ───────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - podcast-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── FastAPI ─────────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-podcastai}:${POSTGRES_PASSWORD:-podcastai}@postgres:5432/${POSTGRES_DB:-podcastai}
+      REDIS_URL: redis://redis:6379
+      CELERY_BROKER_URL: redis://redis:6379/1
+      GATEWAY_URL: ${GATEWAY_URL:-http://gateway.yourdomain.com}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_STARTER: ${STRIPE_PRICE_STARTER:-}
+      STRIPE_PRICE_CREATOR: ${STRIPE_PRICE_CREATOR:-}
+      STRIPE_PRICE_STUDIO: ${STRIPE_PRICE_STUDIO:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-changeme-in-production}
+      JWT_ALGORITHM: HS256
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      UPLOADS_DIR: /uploads
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-500}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    volumes:
+      - uploads-data:/uploads
+    networks:
+      - podcast-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8002:8002"
+
+  # ── Celery worker ───────────────────────────────────────────
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-podcastai}:${POSTGRES_PASSWORD:-podcastai}@postgres:5432/${POSTGRES_DB:-podcastai}
+      REDIS_URL: redis://redis:6379
+      CELERY_BROKER_URL: redis://redis:6379/1
+      GATEWAY_URL: ${GATEWAY_URL:-http://gateway.yourdomain.com}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-changeme-in-production}
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      UPLOADS_DIR: /uploads
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-500}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    volumes:
+      - uploads-data:/uploads
+    networks:
+      - podcast-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Next.js frontend ────────────────────────────────────────
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:8002}
+    networks:
+      - podcast-net
+    depends_on:
+      - api
+    ports:
+      - "3001:3001"

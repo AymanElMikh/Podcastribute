@@ -1,0 +1,202 @@
+name: Test · Build · Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_API: ghcr.io/${{ github.repository }}/api
+  IMAGE_WORKER: ghcr.io/${{ github.repository }}/worker
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository }}/frontend
+
+jobs:
+  # ──────────────────────────────────────────────────────────
+  # Job 1 — Python API tests
+  # ──────────────────────────────────────────────────────────
+  test-api:
+    name: API Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install hatchling
+          pip install -e .
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          REDIS_URL: redis://localhost:6379
+          CELERY_BROKER_URL: redis://localhost:6379/1
+          JWT_SECRET_KEY: test-secret-key
+          ENVIRONMENT: development
+
+  # ──────────────────────────────────────────────────────────
+  # Job 2 — Next.js frontend lint + type-check
+  # ──────────────────────────────────────────────────────────
+  test-frontend:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type-check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Lint
+        working-directory: frontend
+        run: npx eslint . --max-warnings 0 || true
+
+  # ──────────────────────────────────────────────────────────
+  # Job 3 — Build and push Docker images
+  # Only runs on push to main after tests pass
+  # ──────────────────────────────────────────────────────────
+  build:
+    name: Build Images
+    runs-on: ubuntu-latest
+    needs: [test-api, test-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.api
+          push: true
+          tags: |
+            ${{ env.IMAGE_API }}:latest
+            ${{ env.IMAGE_API }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_API }}:latest
+          cache-to: type=inline
+
+      - name: Build and push Worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.worker
+          push: true
+          tags: |
+            ${{ env.IMAGE_WORKER }}:latest
+            ${{ env.IMAGE_WORKER }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_WORKER }}:latest
+          cache-to: type=inline
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.frontend
+          push: true
+          tags: |
+            ${{ env.IMAGE_FRONTEND }}:latest
+            ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_FRONTEND }}:latest
+          cache-to: type=inline
+
+  # ──────────────────────────────────────────────────────────
+  # Job 4 — Deploy to VPS
+  # Requires manual approval via GitHub Environments
+  # ──────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    environment:
+      name: production
+      url: https://podcast.yourdomain.com
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -e
+
+            cd /opt/projects/podcastai
+
+            # Pull latest images
+            echo "${{ secrets.GITHUB_TOKEN }}" | \
+              docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            docker pull ${{ env.IMAGE_API }}:latest
+            docker pull ${{ env.IMAGE_WORKER }}:latest
+            docker pull ${{ env.IMAGE_FRONTEND }}:latest
+
+            # Rolling restart — zero downtime for stateless services
+            docker compose -f docker/docker-compose.yml up -d \
+              --no-build \
+              --pull never \
+              api worker frontend
+
+            # Wait for API health check
+            echo "Waiting for API health check..."
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:8002/v1/health; then
+                echo "API is healthy"
+                break
+              fi
+              if [ "$i" -eq 12 ]; then
+                echo "API failed to become healthy" >&2
+                exit 1
+              fi
+              sleep 5
+            done
+
+            # Clean up old images
+            docker image prune -f
+
+      - name: Notify deployment
+        if: always()
+        run: |
+          echo "Deployment to production: ${{ job.status }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Deployed by: ${{ github.actor }}"

@@ -1,0 +1,50 @@
+# ──────────────────────────────────────────────────────────────
+# Stage 1 — deps: install node_modules
+# ──────────────────────────────────────────────────────────────
+FROM node:20-alpine AS deps
+
+WORKDIR /app
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+# ──────────────────────────────────────────────────────────────
+# Stage 2 — builder: compile Next.js with standalone output
+# ──────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY frontend/ .
+
+# Standalone output bundles the server + required node_modules
+# into .next/standalone so the runner image needs no node_modules
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+# ──────────────────────────────────────────────────────────────
+# Stage 3 — runner: minimal production image
+# ──────────────────────────────────────────────────────────────
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup -S app && adduser -S app -G app
+
+# Copy the standalone bundle
+COPY --from=builder --chown=app:app /app/.next/standalone ./
+COPY --from=builder --chown=app:app /app/.next/static ./.next/static
+COPY --from=builder --chown=app:app /app/public ./public
+
+USER app
+
+EXPOSE 3001
+
+ENV PORT=3001
+ENV HOSTNAME=0.0.0.0
+
+CMD ["node", "server.js"]

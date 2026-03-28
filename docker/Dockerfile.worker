@@ -1,0 +1,48 @@
+# ──────────────────────────────────────────────────────────────
+# Celery worker — same deps as the API, different CMD
+# ──────────────────────────────────────────────────────────────
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir hatchling && \
+    pip install --no-cache-dir -e .
+
+# ──────────────────────────────────────────────────────────────
+FROM python:3.12-slim
+
+RUN groupadd -r app && useradd -r -g app -u 1000 app
+
+WORKDIR /app
+
+# ffmpeg required for audio conversion; whisper for transcription
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    ffmpeg \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY api/ ./api/
+COPY worker/ ./worker/
+
+RUN mkdir -p /uploads && chown app:app /uploads
+
+USER app
+
+# 2 concurrent tasks; late ack so jobs aren't lost on crash
+CMD ["celery", "-A", "worker.celery_app", "worker", \
+     "--concurrency=2", "--loglevel=info"]
