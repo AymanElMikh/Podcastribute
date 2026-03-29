@@ -114,7 +114,7 @@ services:
       redis:
         condition: service_healthy
 
-  # ── Next.js frontend ────────────────────────────────────────
+  # ── Next.js frontend (v2) ───────────────────────────────────
   frontend:
     build:
       context: ..
@@ -124,6 +124,10 @@ services:
         # that browsers can reach (not the internal docker network name)
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8002}
     restart: unless-stopped
+    environment:
+      # Used server-side by the Next.js proxy route handlers at runtime.
+      # Points to the API service on the internal Docker network.
+      BACKEND_URL: http://api:8002
     networks:
       - podcast-net
     depends_on:

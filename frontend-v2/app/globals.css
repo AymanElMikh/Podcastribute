@@ -1,0 +1,202 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────
+   DESIGN TOKENS — CSS Variables
+   ───────────────────────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --bg-base:     #0D0D0D;
+  --bg-surface:  #161616;
+  --bg-elevated: #1E1E1E;
+  --bg-overlay:  #242424;
+
+  /* Accents */
+  --accent-amber: #F5A623;
+  --accent-gold:  #D4AC0D;
+  --accent-warm:  #FF6B35;
+
+  /* Text */
+  --text-primary:   #F0EDE8;
+  --text-secondary: #8A8580;
+  --text-tertiary:  #4A4540;
+
+  /* Borders */
+  --border-subtle:  rgba(240, 237, 232, 0.06);
+  --border-default: rgba(240, 237, 232, 0.12);
+  --border-strong:  rgba(240, 237, 232, 0.20);
+
+  /* Status */
+  --success: #22C55E;
+  --error:   #EF4444;
+
+  /* Radius */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-2xl:  24px;
+  --radius-full: 9999px;
+
+  /* Spacing (base-4) */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* Typography scale */
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-lg:   18px;
+  --text-xl:   24px;
+  --text-2xl:  32px;
+  --text-3xl:  48px;
+  --text-4xl:  64px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TAILWIND v4 THEME — Maps CSS vars → Tailwind utilities
+   ───────────────────────────────────────────────────────────── */
+@theme inline {
+  /* Color utilities: bg-bg-base, text-bg-surface, etc. */
+  --color-bg-base:     var(--bg-base);
+  --color-bg-surface:  var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-overlay:  var(--bg-overlay);
+
+  --color-amber: var(--accent-amber);
+  --color-gold:  var(--accent-gold);
+  --color-warm:  var(--accent-warm);
+
+  --color-primary:   var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-tertiary:  var(--text-tertiary);
+
+  --color-border-subtle:  var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong:  var(--border-strong);
+
+  --color-success: var(--success);
+  --color-error:   var(--error);
+
+  /* Font families — variables injected by next/font */
+  --font-sans:    var(--font-dm-sans);
+  --font-display: var(--font-playfair);
+  --font-mono:    var(--font-jetbrains);
+
+  /* Border radius overrides */
+  --radius-sm:   var(--radius-sm);
+  --radius-md:   var(--radius-md);
+  --radius-lg:   var(--radius-lg);
+  --radius-xl:   var(--radius-xl);
+  --radius-2xl:  var(--radius-2xl);
+  --radius-full: var(--radius-full);
+
+  /* Animation shorthands */
+  --animate-shimmer:     shimmer 1.5s ease-in-out infinite;
+  --animate-fade-up:     fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-pulse-amber: pulseAmber 2s ease-in-out infinite;
+  --animate-spin-slow:   spin 1.5s linear infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   KEYFRAMES
+   ───────────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1;   }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+@keyframes pulseAmber {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1;   }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   BASE STYLES
+   ───────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  height: 100%;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-dm-sans, 'DM Sans', sans-serif);
+  font-size: var(--text-base);
+  line-height: 1.6;
+}
+
+/* Focus ring — amber, 2px offset */
+:focus-visible {
+  outline: 2px solid var(--accent-amber);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Text selection */
+::selection {
+  background-color: rgba(245, 166, 35, 0.25);
+  color: var(--text-primary);
+}
+
+/* Scrollbar (webkit) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* Headings — display font */
+h1, h2, h3 {
+  font-family: var(--font-playfair, 'Playfair Display', serif);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+h4, h5, h6 {
+  font-family: var(--font-dm-sans, 'DM Sans', sans-serif);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Placeholder text */
+::placeholder {
+  color: var(--text-tertiary);
+}
